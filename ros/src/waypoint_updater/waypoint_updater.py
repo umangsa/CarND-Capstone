@@ -31,9 +31,8 @@ class WaypointUpdater(object):
 
         rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
-
-        # TODO: Add a subscriber for /traffic_waypoint and /obstacle_waypoint below
-
+        rospy.Subscriber('/traffic_waypoint', Lane, self.traffic_cb)
+        rospy.Subscriber('/obstacle_waypoint', Lane, self.obstacle_cb)
 
         self.final_waypoints_pub = rospy.Publisher('final_waypoints', Lane, queue_size=1)
 
@@ -58,7 +57,6 @@ class WaypointUpdater(object):
         return closest_wp
 
     def pose_cb(self, msg):
-        # TODO: Implement
         # find the nearest waypoint ahead
         if self.base_waypoints:
             closest_wp = self.get_closest_waypoint(msg.pose, self.base_waypoints)
@@ -89,15 +87,17 @@ class WaypointUpdater(object):
                 wp.twist.twist = self.base_waypoints[i].twist.twist
                 final_waypoints.append(wp)
 
+            # publish final waypoints
             lane = Lane()
             lane.header.stamp = rospy.Time.now()
+            lane.header.frame_id = msg.header.frame_id
+            lane.header.seq = msg.header.seq
             lane.waypoints = final_waypoints
             self.final_waypoints_pub.publish(lane)
 
         pass
 
     def waypoints_cb(self, waypoints):
-        # TODO: Implement
         rospy.loginfo('Received waypoints - number of waypoints {}'.format(len(waypoints.waypoints)))
         self.base_waypoints = waypoints.waypoints
         pass
