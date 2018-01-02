@@ -9,24 +9,25 @@ ONE_MPH = 0.44704
 
 
 class Controller(object):
-    def __init__(self, max_accel, max_steering, wheel_base, steer_ratio, min_speed, max_lat_accel, decel_limit, vehicle_mass, fuel_capacity, wheel_radius, *args, **kwargs):
+    def __init__(self, max_accel, max_steering, wheel_base, steer_ratio, min_speed, max_lat_accel, decel_limit, vehicle_mass, fuel_capacity, wheel_radius, brake_deadband, *args, **kwargs):
         # TODO: Implement
         self.pid_speed_controller = PID(2., 0., 0.)
         self.pid_accel_controller = PID(0.4, 0.1, 0.)
-        self.lpf_accel = LowPassFilter(tau = 0.5, ts = 0.02)
+        self.lpf_accel = LowPassFilter(tau = 0.5, ts = 0.2)
         self.yaw_controller = YawController(wheel_base, steer_ratio, min_speed, max_lat_accel, max_steering)
 
         self.last_visit = 0
         self.control_rate = 50. # dbw_node.py is currently set up to publish steering, throttle, and brake commands at 50hz
         self.control_period = 1.0 / self.control_rate;
         self.past_velocity_linear = None
-        self.steer_kp = 0.125
+        self.steer_kp = 0
         self.max_accel = max_accel
         self.max_steering = max_steering
         self.max_decel = decel_limit
         self.vehicle_mass = vehicle_mass
         self.fuel_capacity = fuel_capacity
         self.wheel_radius = wheel_radius
+        self.brake_deadband = brake_deadband
         pass
 
     def control(self, twist_cmd, current_velocity, dbw_enabled):
@@ -61,11 +62,11 @@ class Controller(object):
         dt =  current_ts - self.last_visit
         self.last_visit = current_ts
         acceleration = self.pid_speed_controller.step(linear_velocity_error, self.control_period)
-        acceleration = min(acceleration, self.max_accel)
+        # acceleration = min(acceleration, self.max_accel)
 
         if(acceleration >= 0.):
           throttle = self.pid_accel_controller.step(acceleration - self.lpf_accel.get(), self.control_period)
-        else:
+        elif (acceleration < - self.brake_deadband):
           acceleration = max(self.max_decel, acceleration)
           brake = -acceleration * (self.vehicle_mass + self.fuel_capacity * GAS_DENSITY) * self.wheel_radius
 

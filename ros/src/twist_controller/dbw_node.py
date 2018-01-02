@@ -46,6 +46,7 @@ class DBWNode(object):
         max_lat_accel = rospy.get_param('~max_lat_accel', 3.)
         max_steer_angle = rospy.get_param('~max_steer_angle', 8.)
         min_speed = rospy.get_param('~min_speed', 0.0)
+        brake_deadband = rospy.get_param('~brake_deadband', 0.1)
 
         self.steer_pub = rospy.Publisher('/vehicle/steering_cmd',
                                          SteeringCmd, queue_size=1)
@@ -55,7 +56,7 @@ class DBWNode(object):
                                          BrakeCmd, queue_size=1)
 
         # Create `TwistController` object
-        self.controller = Controller(accel_limit, max_steer_angle, wheel_base, steer_ratio, min_speed, max_lat_accel, decel_limit, vehicle_mass, fuel_capacity, wheel_radius)
+        self.controller = Controller(accel_limit, max_steer_angle, wheel_base, steer_ratio, min_speed, max_lat_accel, decel_limit, vehicle_mass, fuel_capacity, wheel_radius, brake_deadband)
 
         # TODO: Subscribe to all the topics you need to
         rospy.Subscriber('/current_velocity', TwistStamped, self.current_velocity_cb)

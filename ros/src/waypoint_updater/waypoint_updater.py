@@ -7,6 +7,7 @@ from std_msgs.msg import Int32
 
 import math
 import tf
+import copy
 
 '''
 This node will publish waypoints from the car's current position to some `x` distance ahead.
@@ -39,8 +40,78 @@ class WaypointUpdater(object):
 
         # TODO: Add other member variables you need below
         self.base_waypoints = None
+        self.pose = None
 
-        rospy.spin()
+        # rospy.spin()
+        self.loop()
+
+    def loop(self):
+        rate = rospy.Rate(50) # 50Hz
+        while not rospy.is_shutdown():
+            self.generate_waypoints()
+            rate.sleep()
+
+
+
+    def generate_waypoints(self):
+        # find the nearest waypoint ahead
+        if self.base_waypoints and self.pose:
+            closest_wp = self.get_closest_waypoint(self.pose, self.base_waypoints)
+
+            # find the next waypoint
+            map_x = self.base_waypoints[closest_wp].pose.pose.position.x
+            map_y = self.base_waypoints[closest_wp].pose.pose.position.y
+            heading = math.atan2( (map_y - self.pose.position.y), (map_x - self.pose.position.x) )
+            quaternion = (
+                self.pose.orientation.x,
+                self.pose.orientation.y,
+                self.pose.orientation.z,
+                self.pose.orientation.w)
+            euler = tf.transformations.euler_from_quaternion(quaternion)
+            theta = euler[2] # Yaw angle = Heading angle
+            angle = abs(theta - heading)
+
+            if(angle > math.pi / 4.0):
+                closest_wp += 1
+
+            # now get the list of waypoints that we want to publish
+            final_waypoints = []
+            index = closest_wp
+            for i in range(closest_wp, closest_wp + LOOKAHEAD_WPS):
+                wp = Waypoint()
+                # wp.pose.pose.position = copy.deepcopy(self.base_waypoints[i].pose.pose.position)
+                # wp.pose.pose.orientation = copy.deepcopy(self.base_waypoints[i].pose.pose.orientation)
+                # wp.twist.twist = copy.deepcopy(self.base_waypoints[i].twist.twist)
+
+                wp.pose.pose.position.x = self.base_waypoints[i].pose.pose.position.x
+                wp.pose.pose.position.y = self.base_waypoints[i].pose.pose.position.y
+                wp.pose.pose.position.z = self.base_waypoints[i].pose.pose.position.z
+
+                wp.pose.pose.orientation.x = self.base_waypoints[i].pose.pose.orientation.x
+                wp.pose.pose.orientation.y = self.base_waypoints[i].pose.pose.orientation.y
+                wp.pose.pose.orientation.z = self.base_waypoints[i].pose.pose.orientation.z
+                wp.pose.pose.orientation.w = self.base_waypoints[i].pose.pose.orientation.w
+
+                wp.twist.twist.linear.x = self.base_waypoints[i].twist.twist.linear.x
+                wp.twist.twist.linear.y = self.base_waypoints[i].twist.twist.linear.y
+                wp.twist.twist.linear.z = self.base_waypoints[i].twist.twist.linear.z
+
+                wp.twist.twist.angular.x = self.base_waypoints[i].twist.twist.angular.x
+                wp.twist.twist.angular.y = self.base_waypoints[i].twist.twist.angular.y
+                wp.twist.twist.angular.z = self.base_waypoints[i].twist.twist.angular.z
+
+                final_waypoints.append(wp)
+
+            # publish final waypoints
+            lane = Lane()
+            lane.header.stamp = rospy.Time.now()
+            # lane.header.frame_id = msg.header.frame_id
+            # lane.header.seq = msg.header.seq
+            lane.waypoints = final_waypoints
+            self.final_waypoints_pub.publish(lane)
+
+            self.pose = None
+
 
     def get_closest_waypoint(self, pose, waypoints):
         wp_distance = 100000.0
@@ -58,45 +129,9 @@ class WaypointUpdater(object):
         return closest_wp
 
     def pose_cb(self, msg):
-        # find the nearest waypoint ahead
-        if self.base_waypoints:
-            closest_wp = self.get_closest_waypoint(msg.pose, self.base_waypoints)
-
-            # find the next waypoint
-            map_x = self.base_waypoints[closest_wp].pose.pose.position.x
-            map_y = self.base_waypoints[closest_wp].pose.pose.position.y
-            heading = math.atan2( (map_y - msg.pose.position.y), (map_x - msg.pose.position.x) )
-            quaternion = (
-                msg.pose.orientation.x,
-                msg.pose.orientation.y,
-                msg.pose.orientation.z,
-                msg.pose.orientation.w)
-            euler = tf.transformations.euler_from_quaternion(quaternion)
-            theta = euler[2]
-            angle = abs(theta - heading)
-
-            if(angle > math.pi / 4.0):
-                closest_wp += 1
-
-            # now get the list of waypoints that we want to publish
-            final_waypoints = []
-            index = closest_wp
-            for i in range(closest_wp, closest_wp + LOOKAHEAD_WPS):
-                wp = Waypoint()
-                wp.pose.pose.position = self.base_waypoints[i].pose.pose.position
-                wp.pose.pose.orientation = self.base_waypoints[i].pose.pose.orientation
-                wp.twist.twist = self.base_waypoints[i].twist.twist
-                final_waypoints.append(wp)
-
-            # publish final waypoints
-            lane = Lane()
-            lane.header.stamp = rospy.Time.now()
-            lane.header.frame_id = msg.header.frame_id
-            lane.header.seq = msg.header.seq
-            lane.waypoints = final_waypoints
-            self.final_waypoints_pub.publish(lane)
-
+        self.pose = msg.pose
         pass
+
 
     def waypoints_cb(self, waypoints):
         rospy.loginfo('Received waypoints - number of waypoints {}'.format(len(waypoints.waypoints)))
