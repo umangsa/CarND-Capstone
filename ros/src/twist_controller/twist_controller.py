@@ -33,6 +33,7 @@ class Controller(object):
     def reset(self):
       self.pid_accel_controller.reset()
       self.pid_speed_controller.reset()
+      self.lpf_accel.filt(0)
 
     def control(self, twist_cmd, current_velocity, dbw_enabled):
         # TODO: Change the arg, kwarg list to suit your needs
