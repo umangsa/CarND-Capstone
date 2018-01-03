@@ -110,6 +110,8 @@ class DBWNode(object):
 
     def dbw_enabled_cb(self, msg):
         self.dbw_enabled = msg.data
+        if self.dbw_enabled == False:
+            self.controller.reset()
 
 
 if __name__ == '__main__':

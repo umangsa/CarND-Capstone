@@ -8,6 +8,7 @@ from std_msgs.msg import Int32
 import math
 import tf
 import copy
+from collections import deque
 
 '''
 This node will publish waypoints from the car's current position to some `x` distance ahead.
@@ -41,6 +42,9 @@ class WaypointUpdater(object):
         # TODO: Add other member variables you need below
         self.base_waypoints = None
         self.pose = None
+        self.current_waypoint = -1
+        self.traffic_waypoint = -1
+        self.original_velocity = deque()
 
         # rospy.spin()
         self.loop()
@@ -57,6 +61,7 @@ class WaypointUpdater(object):
         # find the nearest waypoint ahead
         if self.base_waypoints and self.pose:
             closest_wp = self.get_closest_waypoint(self.pose, self.base_waypoints)
+            self.current_waypoint = closest_wp
 
             # find the next waypoint
             map_x = self.base_waypoints[closest_wp].pose.pose.position.x
@@ -73,6 +78,10 @@ class WaypointUpdater(object):
 
             if(angle > math.pi / 4.0):
                 closest_wp += 1
+
+            # condition to handle if the traffic waypoint for red was in the past. Should not happen
+            # if (self.traffic_waypoint != -1) and (self.current_waypoint > self.traffic_waypoint):
+            #     self.reset_waypoints_velocity()
 
             # now get the list of waypoints that we want to publish
             final_waypoints = []
@@ -128,6 +137,24 @@ class WaypointUpdater(object):
 
         return closest_wp
 
+    def reset_waypoints_velocity(self):
+        for i in range(len(self.original_velocity)):
+            wp = self.original_velocity.popleft()
+            self.set_waypoint_velocity(self.base_waypoints, wp[0], wp[1])
+
+    def slow_down_car(self):
+        current_velocity = self.get_waypoint_velocity(self.base_waypoints[self.current_waypoint])
+        delta_vel = current_velocity / float(self.traffic_waypoint - self.current_waypoint)
+        new_vel = current_velocity - delta_vel
+
+        for i in range(self.current_waypoint, self.traffic_waypoint):
+            self.original_velocity.append((i, self.get_waypoint_velocity(self.base_waypoints[i])))
+            self.set_waypoint_velocity(self.base_waypoints, i, new_vel)
+            new_vel -= delta_vel
+            if new_vel <= 1.:
+                new_vel = 0
+
+
     def pose_cb(self, msg):
         self.pose = msg.pose
         pass
@@ -140,6 +167,13 @@ class WaypointUpdater(object):
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
+        if msg.data == -1:
+            self.reset_waypoints_velocity()
+            self.traffic_waypoint = -1
+        else:
+            self.traffic_waypoint = msg.data
+            self.slow_down_car()
+
         pass
 
     def obstacle_cb(self, msg):
