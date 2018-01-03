@@ -57,7 +57,7 @@ class Controller(object):
           self.past_velocity_linear = current_velocity.linear
           # return  throttle, brake, steering
 
-        accel = self.control_rate * (current_velocity.linear.x - self.past_velocity_linear.x)
+        accel = self.control_period * (current_velocity.linear.x - self.past_velocity_linear.x)
         self.lpf_accel.filt(accel)
 
         
@@ -68,11 +68,12 @@ class Controller(object):
         acceleration = self.pid_speed_controller.step(linear_velocity_error, self.control_period)
         # acceleration = min(acceleration, self.max_accel)
 
-        if(acceleration >= 0.1):
+        if(acceleration > 2*ONE_MPH):
           throttle = self.pid_accel_controller.step(acceleration - self.lpf_accel.get(), self.control_period)
-          if abs(throttle) <= 0.02:
-            throttle = 0
-        elif (acceleration < -self.brake_deadband):
+          # if abs(throttle) <= 0.02:
+          #   throttle = 0
+        # elif (acceleration < -self.brake_deadband):
+        elif (acceleration < 0.):
           acceleration = max(self.max_decel, acceleration)
           brake = -acceleration * (self.vehicle_mass + self.fuel_capacity * GAS_DENSITY) * self.wheel_radius
 
@@ -83,4 +84,4 @@ class Controller(object):
         steering = min(steering, self.max_steering)
         steering = max(steering, -self.max_steering)
 
-        return  abs(throttle), brake, steering
+        return  throttle, brake, steering
