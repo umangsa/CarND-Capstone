@@ -20,7 +20,7 @@ class Controller(object):
         self.control_rate = 50. # dbw_node.py is currently set up to publish steering, throttle, and brake commands at 50hz
         self.control_period = 1.0 / self.control_rate;
         self.past_velocity_linear = None
-        self.steer_kp = 0
+        self.steer_kp = 3.5
         self.max_accel = max_accel
         self.max_steering = max_steering
         self.max_decel = decel_limit

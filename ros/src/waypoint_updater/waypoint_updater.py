@@ -62,6 +62,7 @@ class WaypointUpdater(object):
         if self.base_waypoints and self.pose:
             closest_wp = self.get_closest_waypoint(self.pose, self.base_waypoints)
             self.current_waypoint = closest_wp
+            # rospy.loginfo('Closest Waypoint {}'.format(closest_wp))
 
             # find the next waypoint
             map_x = self.base_waypoints[closest_wp].pose.pose.position.x
@@ -79,6 +80,8 @@ class WaypointUpdater(object):
             if(angle > math.pi / 4.0):
                 closest_wp += 1
 
+            # closest_wp = closest_wp % len(self.base_waypoints)
+
             # condition to handle if the traffic waypoint for red was in the past. Should not happen
             # if (self.traffic_waypoint != -1) and (self.current_waypoint > self.traffic_waypoint):
             #     self.reset_waypoints_velocity()
@@ -87,6 +90,7 @@ class WaypointUpdater(object):
             final_waypoints = []
             index = closest_wp
             for i in range(closest_wp, closest_wp + LOOKAHEAD_WPS):
+                i = i % len(self.base_waypoints)
                 wp = Waypoint()
                 # wp.pose.pose.position = copy.deepcopy(self.base_waypoints[i].pose.pose.position)
                 # wp.pose.pose.orientation = copy.deepcopy(self.base_waypoints[i].pose.pose.orientation)
