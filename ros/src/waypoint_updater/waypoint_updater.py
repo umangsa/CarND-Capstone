@@ -41,10 +41,10 @@ class WaypointUpdater(object):
 
         # TODO: Add other member variables you need below
         self.base_waypoints = None
+        self.base_raw_waypoints = None
         self.pose = None
         self.current_waypoint = -1
         self.traffic_waypoint = -1
-        self.original_velocity = deque()
 
         # rospy.spin()
         self.loop()
@@ -54,8 +54,6 @@ class WaypointUpdater(object):
         while not rospy.is_shutdown():
             self.generate_waypoints()
             rate.sleep()
-
-
 
     def generate_waypoints(self):
         # find the nearest waypoint ahead
@@ -125,7 +123,6 @@ class WaypointUpdater(object):
 
             self.pose = None
 
-
     def get_closest_waypoint(self, pose, waypoints):
         wp_distance = 100000.0
         closest_wp = 0
@@ -142,43 +139,78 @@ class WaypointUpdater(object):
         return closest_wp
 
     def reset_waypoints_velocity(self):
-        for i in range(len(self.original_velocity)):
-            wp = self.original_velocity.popleft()
-            self.set_waypoint_velocity(self.base_waypoints, wp[0], wp[1])
+        self.base_waypoints = self.base_raw_waypoints
 
-    def slow_down_car(self):
-        current_velocity = self.get_waypoint_velocity(self.base_waypoints[self.current_waypoint])
-        delta_vel = current_velocity / float(self.traffic_waypoint - self.current_waypoint)
-        new_vel = current_velocity - delta_vel
+    def brakeBeforeTrafficLight(self):
+        # Distance from traffic light to start braking.
+        brakeStartDist = 20
+        # Distance from traffic light (or stop line) to come to a stop.
+        brakeStopDist = 0
 
-        for i in range(self.current_waypoint, self.traffic_waypoint):
-            self.original_velocity.append((i, self.get_waypoint_velocity(self.base_waypoints[i])))
-            self.set_waypoint_velocity(self.base_waypoints, i, new_vel)
+        # Stepping back from traffic waypoint, find waypoints where braking
+        # should start and finish.
+        dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)   # Copied from distance()
+        dist = 0
+        brakeStartWp = -1
+        brakeStopWp = -1
+        assert(brakeStartDist > brakeStopDist)
+        # TODO: Make sure that waypoint indices always increase monotonically.
+        # For example, if car is driving in a continuous loop then at some point
+        # the waypoints might wrap around.
+        #rospy.loginfo('D5: brakeBeforeTrafficLight wps {}, {}'.format(self.traffic_waypoint, self.current_waypoint))
+        for wp in range(self.traffic_waypoint, self.current_waypoint, -1):
+            dist += dl(self.base_waypoints[wp].pose.pose.position, self.base_waypoints[wp+1].pose.pose.position)
+            if (brakeStopWp == -1) and (dist >= brakeStopDist):
+                brakeStopWp = wp
+            brakeStartWp = wp
+            if dist >= brakeStartDist:
+                break
+
+        #rospy.loginfo('D4: brakeBeforeTrafficLight start {} stop {}'.format(brakeStartWp, brakeStopWp))
+
+        # Sanity checks. Example: if traffic waypoint is at very short range, perhaps
+        # even the current waypoint, then above search is nonsensical. In those cases,
+        # do not attempt to brake.
+        if (brakeStopWp >= 0) and (brakeStartWp >= 0) and (brakeStartWp < brakeStopWp):
+            self.brakeBetweenWaypoints(brakeStartWp, brakeStopWp)
+
+    def brakeBetweenWaypoints(self, brakeStartWp, brakeStopWp):
+        init_velocity = self.get_waypoint_velocity(self.base_raw_waypoints[brakeStartWp])
+        delta_vel = init_velocity / float(brakeStopWp - brakeStartWp)
+
+        # TODO: Determine units here. m/s? mph?
+        brakeDist = self.distance(self.base_raw_waypoints, brakeStartWp, brakeStopWp)
+        decel = init_velocity / brakeDist
+        rospy.loginfo('Planning brake across wp {} to {}, dist {}, deceleration {}'.format(brakeStartWp, brakeStopWp, brakeDist, decel))
+
+        # Clear any existing maneuvers.
+        # TODO: Check for race condition here.
+        self.reset_waypoints_velocity()
+        new_vel = init_velocity - delta_vel
+        for wp in range(brakeStartWp, brakeStopWp):
+            self.set_waypoint_velocity(self.base_waypoints, wp, new_vel)
             new_vel -= delta_vel
             if new_vel <= 1.:
                 new_vel = 0
 
-
     def pose_cb(self, msg):
         self.pose = msg.pose
-        pass
-
 
     def waypoints_cb(self, waypoints):
         rospy.loginfo('Received waypoints - number of waypoints {}'.format(len(waypoints.waypoints)))
-        self.base_waypoints = waypoints.waypoints
-        pass
+        self.base_raw_waypoints = waypoints.waypoints
+        self.base_waypoints = self.base_raw_waypoints
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
         if msg.data == -1:
+            #rospy.loginfo('D2: traffic_cb clear traffic light')
             self.reset_waypoints_velocity()
             self.traffic_waypoint = -1
         else:
+            #rospy.loginfo('D3: traffic_cb rcv traffic light: {}'.format(msg.data))
             self.traffic_waypoint = msg.data
-            self.slow_down_car()
-
-        pass
+            self.brakeBeforeTrafficLight()
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
@@ -193,9 +225,8 @@ class WaypointUpdater(object):
     def distance(self, waypoints, wp1, wp2):
         dist = 0
         dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
-        for i in range(wp1, wp2+1):
-            dist += dl(waypoints[wp1].pose.pose.position, waypoints[i].pose.pose.position)
-            wp1 = i
+        for i in range(wp1, wp2):
+            dist += dl(waypoints[i].pose.pose.position, waypoints[i+1].pose.pose.position)
         return dist
 
 
