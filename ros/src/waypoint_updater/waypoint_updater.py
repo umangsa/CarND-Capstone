@@ -176,7 +176,6 @@ class WaypointUpdater(object):
 
     def brakeBetweenWaypoints(self, brakeStartWp, brakeStopWp):
         init_velocity = self.get_waypoint_velocity(self.base_raw_waypoints[brakeStartWp])
-        delta_vel = init_velocity / float(brakeStopWp - brakeStartWp)
 
         # TODO: Determine units here. m/s? mph?
         brakeDist = self.distance(self.base_raw_waypoints, brakeStartWp, brakeStopWp)
@@ -186,12 +185,13 @@ class WaypointUpdater(object):
         # Clear any existing maneuvers.
         # TODO: Check for race condition here.
         self.reset_waypoints_velocity()
-        new_vel = init_velocity - delta_vel
         for wp in range(brakeStartWp, brakeStopWp):
-            self.set_waypoint_velocity(self.base_waypoints, wp, new_vel)
-            new_vel -= delta_vel
-            if new_vel <= 1.:
+            # Linear interpolation
+            # TODO: Improve this math s.t. stopping point is right at light.
+            new_vel = init_velocity * (wp-brakeStartWp) / (brakeStopWp-brakeStartWp)
+            if new_vel <= 1:
                 new_vel = 0
+            self.set_waypoint_velocity(self.base_waypoints, wp, new_vel)
 
     def pose_cb(self, msg):
         self.pose = msg.pose
