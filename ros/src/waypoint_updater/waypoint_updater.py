@@ -156,15 +156,20 @@ class WaypointUpdater(object):
 
         # Decelerate algorithm similar to waypoint_loader.decelerate().
         self.set_waypoint_velocity(self.traffic_waypoint, 0)
+        # Distance before stopping point to aim to stop.
+        brakeMargin = 3
         dist = 0
         for wp in range(self.traffic_waypoint-1, self.current_waypoint, -1):
             dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
             # Approximation: Assume straight path to traffic light.
             #dist = dl(wp.pose.pose.position, self.base_waypoints[self.traffic_waypoint].pose.pose.position)
             dist += dl(self.base_waypoints[wp].pose.pose.position, self.base_waypoints[wp+1].pose.pose.position)
-            vel = math.sqrt(2 * MAX_DECEL * dist)
-            if vel < 1.:
-                vel = 0.
+            if dist < brakeMargin:
+                vel = 0
+            else:
+                vel = math.sqrt(2 * MAX_DECEL * (dist - brakeMargin))
+                if vel < 1:
+                    vel = 0
             self.set_waypoint_velocity(wp, min(vel, self.get_waypoint_velocity(wp)))
 
     def pose_cb(self, msg):
