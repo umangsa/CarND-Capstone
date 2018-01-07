@@ -29,7 +29,7 @@ class TLClassifier(object):
         self.config = tf.ConfigProto()
         # self.config.gpu_options.allow_growth = True
         # self.config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1
-        self.detection_graph = load_graph(os.path.join(pkg_path, "light_classification", "detection_graph.pb"), "detection")
+        self.detection_graph = load_graph(os.path.join(pkg_path, "light_classification", "ssd_detection_graph.pb"), "detection")
         
         self.detection_image_tensor = self.detection_graph.get_tensor_by_name('detection/image_tensor:0')
         self.detection_scores = self.detection_graph.get_tensor_by_name('detection/detection_scores:0')
@@ -95,21 +95,21 @@ class TLClassifier(object):
         # print("get_classification boxes = {}".format(boxes.shape[0]))
 
         if boxes.shape[0] > 0:
-            return TrafficLight.RED
-            # with self.classification_graph.as_default() as graph, self.classification_sess.as_default() as sess:
-            #     predictions = sess.run(self.classification_predictions, feed_dict={self.boxes: boxes, 
-            #                                                                        self.classification_image: im, 
-            #                                                                        self.box_indices: np.zeros(boxes.shape[0], dtype=np.int32)})
+            # return TrafficLight.RED
+            with self.classification_graph.as_default() as graph, self.classification_sess.as_default() as sess:
+                predictions = sess.run(self.classification_predictions, feed_dict={self.boxes: boxes, 
+                                                                                   self.classification_image: image, 
+                                                                                   self.box_indices: np.zeros(boxes.shape[0], dtype=np.int32)})
             # print("predictions = {}".format(predictions))
-            # final_class = TrafficLight.UNKNOWN
-            # for pred in predictions:
-            #     if pred == 0:
-            #         final_class = TrafficLight.RED
-            #         break
-            #     elif pred == 1:
-            #         final_class = TrafficLight.YELLOW
-            #     elif pred == 2 and final_class != TrafficLight.YELLOW:
-            #         final_class = TrafficLight.GREEN
-            # return final_class
+            final_class = TrafficLight.UNKNOWN
+            for pred in predictions:
+                if pred == 0:
+                    final_class = TrafficLight.RED
+                    break
+                elif pred == 1:
+                    final_class = TrafficLight.YELLOW
+                elif pred == 2 and final_class != TrafficLight.YELLOW:
+                    final_class = TrafficLight.GREEN
+            return final_class
         else:
-            return TrafficLight.RED
+            return TrafficLight.UNKNOWN

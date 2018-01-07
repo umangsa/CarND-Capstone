@@ -46,8 +46,8 @@ class WaypointUpdater(object):
         self.current_waypoint = None
         self.traffic_waypoint = None
 
-        rospy.spin()
-        # self.loop()
+        # rospy.spin()
+        self.loop()
 
     def loop(self):
         rate = rospy.Rate(50) # 50Hz
@@ -57,8 +57,7 @@ class WaypointUpdater(object):
 
     def generate_waypoints(self):
         # find the nearest waypoint ahead
-        if self.base_waypoints and self.pose is not None:
-            print("generate_waypoints current: {}".format(self.current_waypoint))
+        if self.base_waypoints and self.pose:
             closest_wp = self.get_closest_waypoint(self.pose, self.base_waypoints)
 
             # find the next waypoint
@@ -126,9 +125,7 @@ class WaypointUpdater(object):
             lane.waypoints = final_waypoints
             self.final_waypoints_pub.publish(lane)
 
-            # self.pose = None
-        else:
-            print("generate_waypoints skipping, current: {}".format(self.current_waypoint))
+            self.pose = None
 
     def get_closest_waypoint(self, pose, waypoints):
         wp_distance = 100000.0
@@ -210,7 +207,6 @@ class WaypointUpdater(object):
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
-        rospy.loginfo("waypoint_updater: current: {} light: {}".format(self.current_waypoint, msg.data))
         if msg.data == -1:
             #rospy.loginfo('D2: traffic_cb clear traffic light')
             self.reset_waypoints_velocity()
