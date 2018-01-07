@@ -46,8 +46,8 @@ class WaypointUpdater(object):
         self.traffic_waypoint = -1
         self.original_velocity = deque()
 
-        # rospy.spin()
-        self.loop()
+        rospy.spin()
+        # self.loop()
 
     def loop(self):
         rate = rospy.Rate(50) # 50Hz
@@ -59,7 +59,8 @@ class WaypointUpdater(object):
 
     def generate_waypoints(self):
         # find the nearest waypoint ahead
-        if self.base_waypoints and self.pose:
+        if self.base_waypoints and self.pose is not None:
+            print("generate_waypoints current: {}".format(self.current_waypoint))
             closest_wp = self.get_closest_waypoint(self.pose, self.base_waypoints)
             self.current_waypoint = closest_wp
             # rospy.loginfo('Closest Waypoint {}'.format(closest_wp))
@@ -123,7 +124,9 @@ class WaypointUpdater(object):
             lane.waypoints = final_waypoints
             self.final_waypoints_pub.publish(lane)
 
-            self.pose = None
+            # self.pose = None
+        else:
+            print("generate_waypoints skipping, current: {}".format(self.current_waypoint))
 
 
     def get_closest_waypoint(self, pose, waypoints):
@@ -152,16 +155,24 @@ class WaypointUpdater(object):
         new_vel = current_velocity - delta_vel
 
         for i in range(self.current_waypoint, self.traffic_waypoint):
+            rospy.loginfo("wp {} vel {}".format(i, new_vel))
             self.original_velocity.append((i, self.get_waypoint_velocity(self.base_waypoints[i])))
             self.set_waypoint_velocity(self.base_waypoints, i, new_vel)
             new_vel -= delta_vel
             if new_vel <= 1.:
                 new_vel = 0
+        if self.pose is not None:
+            self.generate_waypoints()
 
 
     def pose_cb(self, msg):
         self.pose = msg.pose
-        pass
+        if self.pose is not None:
+            if self.traffic_waypoint >= 0 and self.current_waypoint >= 0:
+                if self.distance(self.base_waypoints, self.current_waypoint, self.traffic_waypoint) > 2.0:
+                    self.generate_waypoints()
+            else:
+                self.generate_waypoints()
 
 
     def waypoints_cb(self, waypoints):
@@ -171,6 +182,7 @@ class WaypointUpdater(object):
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
+        rospy.loginfo("waypoint_updater: current: {} light: {}".format(self.current_waypoint, msg.data))
         if msg.data == -1:
             self.reset_waypoints_velocity()
             self.traffic_waypoint = -1
