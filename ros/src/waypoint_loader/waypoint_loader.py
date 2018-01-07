@@ -54,7 +54,38 @@ class WaypointLoader(object):
                 p.twist.twist.linear.x = float(self.velocity)
 
                 waypoints.append(p)
-        return self.decelerate(waypoints)
+
+            # Clear out redundant waypoints that wrap around beginning of waypoint list.
+            assert(len(waypoints) >= 12)
+            matchWp = None
+            for wp in range(len(waypoints)-1, len(waypoints)-10, -1):
+                # Get angle between previous wp and this wp.
+                map_prev_x = waypoints[wp-1].pose.pose.position.x
+                map_prev_y = waypoints[wp-1].pose.pose.position.y
+                map_x = waypoints[wp].pose.pose.position.x
+                map_y = waypoints[wp].pose.pose.position.y
+                theta_toThisWp_deg = math.atan2( (map_y - map_prev_y), (map_x - map_prev_x) ) * 180/math.pi
+
+                # Get angle between this wp and wp 0.
+                map_prev_x = waypoints[wp].pose.pose.position.x
+                map_prev_y = waypoints[wp].pose.pose.position.y
+                map_x = waypoints[0].pose.pose.position.x
+                map_y = waypoints[0].pose.pose.position.y
+                theta_to0_deg = math.atan2( (map_y - map_prev_y), (map_x - map_prev_x) ) * 180/math.pi
+
+                # If angle between previous wp and this wp is in same general direction
+                # as angle between this wp and wp 0, stop.
+                if abs(theta_to0_deg - theta_toThisWp_deg) < 90:
+                    matchWp = wp
+                    break
+            # If found a wp towards the end of the list that was in the same heading
+            # as towards wp 0, clear out later waypoints.
+            if matchWp is None:
+                return self.decelerate(waypoints)
+            else:
+                # No need to decelerate--waypoints loop around.
+                return waypoints[0:matchWp]
+
 
     def distance(self, p1, p2):
         x, y, z = p1.x - p2.x, p1.y - p2.y, p1.z - p2.z
