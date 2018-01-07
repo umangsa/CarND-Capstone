@@ -43,8 +43,8 @@ class WaypointUpdater(object):
         self.base_waypoints = None
         self.base_raw_waypoints = None
         self.pose = None
-        self.current_waypoint = -1
-        self.traffic_waypoint = -1
+        self.current_waypoint = None
+        self.traffic_waypoint = None
 
         # rospy.spin()
         self.loop()
@@ -59,26 +59,30 @@ class WaypointUpdater(object):
         # find the nearest waypoint ahead
         if self.base_waypoints and self.pose:
             closest_wp = self.get_closest_waypoint(self.pose, self.base_waypoints)
-            self.current_waypoint = closest_wp
-            # rospy.loginfo('Closest Waypoint {}'.format(closest_wp))
 
             # find the next waypoint
-            map_x = self.base_waypoints[closest_wp].pose.pose.position.x
-            map_y = self.base_waypoints[closest_wp].pose.pose.position.y
-            heading = math.atan2( (map_y - self.pose.position.y), (map_x - self.pose.position.x) )
-            quaternion = (
-                self.pose.orientation.x,
-                self.pose.orientation.y,
-                self.pose.orientation.z,
-                self.pose.orientation.w)
-            euler = tf.transformations.euler_from_quaternion(quaternion)
-            theta = euler[2] # Yaw angle = Heading angle
-            angle = abs(theta - heading)
+            orig_closest_wp = closest_wp
+            for limit_i in range(10):
+                map_x = self.base_waypoints[closest_wp].pose.pose.position.x
+                map_y = self.base_waypoints[closest_wp].pose.pose.position.y
+                heading = math.atan2( (map_y - self.pose.position.y), (map_x - self.pose.position.x) )
+                quaternion = (
+                    self.pose.orientation.x,
+                    self.pose.orientation.y,
+                    self.pose.orientation.z,
+                    self.pose.orientation.w)
+                euler = tf.transformations.euler_from_quaternion(quaternion)
+                theta = euler[2] # Yaw angle = Heading angle
+                angle = abs(theta - heading)
 
-            if(angle > math.pi / 4.0):
-                closest_wp += 1
+                if abs(angle) > math.pi/2:
+                    closest_wp = (closest_wp + 1) % len(self.base_waypoints)
+                else:
+                    break
 
-            # closest_wp = closest_wp % len(self.base_waypoints)
+            self.current_waypoint = closest_wp
+            rospy.loginfo('Orig closest Waypoint {}/{}, updated {} @ angle {}deg'.format(orig_closest_wp,
+                len(self.base_waypoints), closest_wp, angle*180/math.pi))
 
             # condition to handle if the traffic waypoint for red was in the past. Should not happen
             # if (self.traffic_waypoint != -1) and (self.current_waypoint > self.traffic_waypoint):
@@ -87,8 +91,8 @@ class WaypointUpdater(object):
             # now get the list of waypoints that we want to publish
             final_waypoints = []
             index = closest_wp
-            for i in range(closest_wp, closest_wp + LOOKAHEAD_WPS):
-                i = i % len(self.base_waypoints)
+            for orig_i in range(closest_wp, closest_wp + LOOKAHEAD_WPS):
+                i = orig_i % len(self.base_waypoints)
                 wp = Waypoint()
                 # wp.pose.pose.position = copy.deepcopy(self.base_waypoints[i].pose.pose.position)
                 # wp.pose.pose.orientation = copy.deepcopy(self.base_waypoints[i].pose.pose.orientation)
@@ -110,7 +114,7 @@ class WaypointUpdater(object):
                 wp.twist.twist.angular.x = self.base_waypoints[i].twist.twist.angular.x
                 wp.twist.twist.angular.y = self.base_waypoints[i].twist.twist.angular.y
                 wp.twist.twist.angular.z = self.base_waypoints[i].twist.twist.angular.z
-
+                
                 final_waypoints.append(wp)
 
             # publish final waypoints
@@ -132,7 +136,7 @@ class WaypointUpdater(object):
         for i in range(len(waypoints)):
             b = waypoints[i].pose.pose.position
             dist = math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) **2)
-            if dist < wp_distance:
+            if dist < wp_distance: # and (i < len(waypoints) - 5):
                 wp_distance = dist
                 closest_wp = i
 
@@ -151,8 +155,8 @@ class WaypointUpdater(object):
         # should start and finish.
         dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)   # Copied from distance()
         dist = 0
-        brakeStartWp = -1
-        brakeStopWp = -1
+        brakeStartWp = None
+        brakeStopWp = None
         assert(brakeStartDist > brakeStopDist)
         # TODO: Make sure that waypoint indices always increase monotonically.
         # For example, if car is driving in a continuous loop then at some point
@@ -160,7 +164,7 @@ class WaypointUpdater(object):
         #rospy.loginfo('D5: brakeBeforeTrafficLight wps {}, {}'.format(self.traffic_waypoint, self.current_waypoint))
         for wp in range(self.traffic_waypoint, self.current_waypoint, -1):
             dist += dl(self.base_waypoints[wp].pose.pose.position, self.base_waypoints[wp+1].pose.pose.position)
-            if (brakeStopWp == -1) and (dist >= brakeStopDist):
+            if (brakeStopWp is None) and (dist >= brakeStopDist):
                 brakeStopWp = wp
             brakeStartWp = wp
             if dist >= brakeStartDist:
@@ -171,7 +175,7 @@ class WaypointUpdater(object):
         # Sanity checks. Example: if traffic waypoint is at very short range, perhaps
         # even the current waypoint, then above search is nonsensical. In those cases,
         # do not attempt to brake.
-        if (brakeStopWp >= 0) and (brakeStartWp >= 0) and (brakeStartWp < brakeStopWp):
+        if (brakeStopWp is not None) and (brakeStartWp is not None) and (brakeStartWp < brakeStopWp):
             self.brakeBetweenWaypoints(brakeStartWp, brakeStopWp)
 
     def brakeBetweenWaypoints(self, brakeStartWp, brakeStopWp):
@@ -206,7 +210,7 @@ class WaypointUpdater(object):
         if msg.data == -1:
             #rospy.loginfo('D2: traffic_cb clear traffic light')
             self.reset_waypoints_velocity()
-            self.traffic_waypoint = -1
+            self.traffic_waypoint = None
         else:
             #rospy.loginfo('D3: traffic_cb rcv traffic light: {}'.format(msg.data))
             self.traffic_waypoint = msg.data
