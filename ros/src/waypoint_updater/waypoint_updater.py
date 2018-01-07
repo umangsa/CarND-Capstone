@@ -42,7 +42,7 @@ class WaypointUpdater(object):
 
         # TODO: Add other member variables you need below
         self.base_waypoints = None
-        self.base_raw_waypoints = None
+        self.orig_wp_vel = []
         self.pose = None
         self.current_waypoint = None
         self.traffic_waypoint = None
@@ -144,12 +144,13 @@ class WaypointUpdater(object):
         return closest_wp
 
     def reset_waypoints_velocity(self):
-        self.base_waypoints = self.base_raw_waypoints
+        for wp_i in range(0,len(self.base_waypoints)):
+            self.set_waypoint_velocity(wp_i, self.orig_wp_vel[wp_i])
 
     def brakeBeforeTrafficLight(self):
         # Clear any existing maneuvers.
         # TODO: Check for race condition here.
-        self.reset_waypoints_velocity()
+        #self.reset_waypoints_velocity()
 
         #rospy.loginfo('Dist to traffic light: {}'.format(self.distance(self.base_waypoints, self.current_waypoint, self.traffic_waypoint)))
 
@@ -171,19 +172,21 @@ class WaypointUpdater(object):
 
     def waypoints_cb(self, waypoints):
         rospy.loginfo('Received waypoints - number of waypoints {}'.format(len(waypoints.waypoints)))
-        self.base_raw_waypoints = waypoints.waypoints
-        self.base_waypoints = self.base_raw_waypoints
+        self.base_waypoints = copy.deepcopy(waypoints.waypoints)
+        self.orig_wp_vel = []
+        for wp_i in range(0,len(self.base_waypoints)):
+            self.orig_wp_vel.append(self.get_waypoint_velocity(wp_i))
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
         if msg.data == -1:
-            #rospy.loginfo('D2: traffic_cb clear traffic light')
             self.reset_waypoints_velocity()
             self.traffic_waypoint = None
+            #rospy.loginfo('D2: traffic_cb clear traffic light. wp 318 vel: {}'.format(self.get_waypoint_velocity(318)))
         else:
-            #rospy.loginfo('D3: traffic_cb rcv traffic light: {}'.format(msg.data))
             self.traffic_waypoint = msg.data
             self.brakeBeforeTrafficLight()
+            #rospy.loginfo('D3: traffic_cb rcv traffic light: {}, wp 318 vel {}'.format(msg.data, self.get_waypoint_velocity(318)))
 
     def obstacle_cb(self, msg):
         # TODO: Callback for /obstacle_waypoint message. We will implement it later
