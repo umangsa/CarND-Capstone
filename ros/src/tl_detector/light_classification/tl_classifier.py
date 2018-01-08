@@ -29,7 +29,7 @@ class TLClassifier(object):
         self.config = tf.ConfigProto()
         # self.config.gpu_options.allow_growth = True
         # self.config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1
-        self.detection_graph = load_graph(os.path.join(pkg_path, "light_classification", "ssd_detection_graph.pb"), "detection")
+        self.detection_graph = load_graph(os.path.join(pkg_path, "light_classification", "detection_graph.pb"), "detection")
         
         self.detection_image_tensor = self.detection_graph.get_tensor_by_name('detection/image_tensor:0')
         self.detection_scores = self.detection_graph.get_tensor_by_name('detection/detection_scores:0')

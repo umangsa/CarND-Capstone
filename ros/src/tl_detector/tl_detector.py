@@ -12,7 +12,7 @@ import cv2
 import yaml
 import math
 
-STATE_COUNT_THRESHOLD = 1
+STATE_COUNT_THRESHOLD = 3
 
 class TLDetector(object):
     def __init__(self):
@@ -84,12 +84,12 @@ class TLDetector(object):
             self.state_count = 0
             self.state = state
             # self.state_published = False
+            rospy.logerr("tl_detector car position: {} light = {}".format(car_position, self.state))
         elif self.state_count >= STATE_COUNT_THRESHOLD:
             # self.state_published = True
             self.last_state = self.state
             light_wp = light_wp if state == TrafficLight.RED else -1
             self.last_wp = light_wp
-            rospy.loginfo("tl_detector car position: {} light wp: {} light = {}".format(car_position, Int32(light_wp), self.state))
             self.upcoming_red_light_pub.publish(Int32(light_wp))
         # else:
         #     print("tl_detector: light = {}".format(Int32(self.last_wp)))

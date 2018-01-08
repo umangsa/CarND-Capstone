@@ -157,7 +157,7 @@ class WaypointUpdater(object):
         # Decelerate algorithm similar to waypoint_loader.decelerate().
         self.set_waypoint_velocity(self.traffic_waypoint, 0)
         # Distance before stopping point to aim to stop.
-        brakeMargin = 3
+        brakeMargin = 10
         dist = 0
         for wp in range(self.traffic_waypoint-1, self.current_waypoint, -1):
             dl = lambda a, b: math.sqrt((a.x-b.x)**2 + (a.y-b.y)**2  + (a.z-b.z)**2)
