@@ -12,7 +12,7 @@ import cv2
 import yaml
 import math
 
-STATE_COUNT_THRESHOLD = 3
+STATE_COUNT_THRESHOLD = 3 
 
 class TLDetector(object):
     def __init__(self):
@@ -49,8 +49,8 @@ class TLDetector(object):
         self.last_state = TrafficLight.UNKNOWN
         self.last_wp = -1
         self.state_count = 0
-        self.state_published = False
-
+        self.log_publish = True
+        
         rospy.spin()
 
     def pose_cb(self, msg):
@@ -81,16 +81,31 @@ class TLDetector(object):
         used.
         '''
         if self.state != state:
-            self.state_count = 0
-            self.state = state
-            # self.state_published = False
-            rospy.logerr("tl_detector car position: {} light = {}".format(car_position, self.state))
-        elif self.state_count >= STATE_COUNT_THRESHOLD:
-            # self.state_published = True
+            if self.last_state == TrafficLight.RED and state == TrafficLight.UNKNOWN:
+                pass
+            else:
+                self.state_count = 0
+                self.state = state
+                rospy.logerr("tl_detector car position: {} state = {}".format(car_position, self.state))
+        elif self.last_state == TrafficLight.RED and self.state_count >= STATE_COUNT_THRESHOLD * 2:
+            if self.last_state != self.state:
+                self.log_publish = True
+            self.last_state = self.state
+            self.last_wp = light_wp
+            self.upcoming_red_light_pub.publish(Int32(light_wp))
+            if self.log_publish:
+                self.log_publish = False
+                rospy.logerr("tl_detector publish car position: {} light_wp = {} state = {}".format(car_position, light_wp, self.state))
+        elif self.last_state != TrafficLight.RED and self.state_count >= STATE_COUNT_THRESHOLD:
+            if self.last_state != self.state:
+                self.log_publish = True
             self.last_state = self.state
             light_wp = light_wp if state == TrafficLight.RED else -1
             self.last_wp = light_wp
             self.upcoming_red_light_pub.publish(Int32(light_wp))
+            if self.log_publish:
+                self.log_publish = False
+                rospy.logerr("tl_detector publish car position: {} light_wp = {} state = {}".format(car_position, light_wp, self.state))
         # else:
         #     print("tl_detector: light = {}".format(Int32(self.last_wp)))
         #     self.upcoming_red_light_pub.publish(Int32(self.last_wp))
@@ -184,7 +199,7 @@ class TLDetector(object):
             dist_to_light = abs(car_position - closest_light_stop_wp)
             #rospy.loginfo("Closest light position (in Wp index): %s", closest_light_stop_wp)
 
-        if light and dist_to_light < 100:       #we check the status of the traffic light if it's within 200 waypoints distance
+        if light and dist_to_light < 200:       #we check the status of the traffic light if it's within 200 waypoints distance
             state = self.get_light_state(light)
             #closest_stop_line_wp = self.find_stop_line(closest_light_wp)
             return closest_light_stop_wp, state, car_position

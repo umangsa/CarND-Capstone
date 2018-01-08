@@ -47,11 +47,11 @@ class WaypointUpdater(object):
         self.current_waypoint = None
         self.traffic_waypoint = None
 
-        # rospy.spin()
+        #rospy.spin()
         self.loop()
 
     def loop(self):
-        rate = rospy.Rate(50) # 50Hz
+        rate = rospy.Rate(20) # 50Hz
         while not rospy.is_shutdown():
             self.generate_waypoints()
             rate.sleep()
@@ -174,6 +174,7 @@ class WaypointUpdater(object):
 
     def pose_cb(self, msg):
         self.pose = msg.pose
+        #self.generate_waypoints()
 
     def waypoints_cb(self, waypoints):
         rospy.loginfo('Received waypoints - number of waypoints {}'.format(len(waypoints.waypoints)))
@@ -184,7 +185,7 @@ class WaypointUpdater(object):
 
     def traffic_cb(self, msg):
         # TODO: Callback for /traffic_waypoint message. Implement
-        if msg.data == -1:
+        if msg.data == -1 and self.traffic_waypoint is not None:
             self.reset_waypoints_velocity()
             self.traffic_waypoint = None
             #rospy.loginfo('D2: traffic_cb clear traffic light. wp 318 vel: {}'.format(self.get_waypoint_velocity(318)))
