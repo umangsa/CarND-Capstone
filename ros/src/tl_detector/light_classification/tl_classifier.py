@@ -64,6 +64,8 @@ class TLClassifier(object):
         self.im_count = 0
         #self.is_ready = False
         black = np.zeros((600, 800, 3), dtype=np.uint8)
+        #self.test_image = cv2.imread("/udacity/temp/245.jpg")
+        #self.test_image = cv2.cvtColor(self.test_image, cv2.COLOR_BGR2RGB)
         _ = self.get_classification(black)
         with self.classification_graph.as_default() as graph, self.classification_sess.as_default() as sess:
             _ = sess.run(self.classification_predictions, feed_dict={self.boxes: [[0.0, 1.0, 0.0, 1.0]], 
@@ -72,7 +74,7 @@ class TLClassifier(object):
         rospy.logerr("classifier ready")
         #self.is_ready = True
 
-    def get_classification(self, image):
+    def get_classification(self, im):
         """Determines the color of the traffic light in the image
 
         Args:
@@ -85,12 +87,12 @@ class TLClassifier(object):
         #TODO implement light color prediction
         # return TrafficLight.RED
         # image = cv2.resize(image, (400, 300), cv2.INTER_AREA)
-        image = image[0:600, 0:500]
+        im = im[0:600, 0:500]
         #cv2.imwrite("/udacity/temp/{}.jpg".format(self.im_count), image)
         self.im_count = self.im_count + 1
-        image = np.expand_dims(image, axis=0)
+        im = np.expand_dims(im, axis=0)
         with self.detection_sess.as_default(), self.detection_graph.as_default():
-          feed_dict = {self.detection_image_tensor: image}
+          feed_dict = {self.detection_image_tensor: im}
           boxes, scores, classes = self.detection_sess.run(self.run_tensors, feed_dict=feed_dict)
 
         boxes = boxes[0]
@@ -108,7 +110,7 @@ class TLClassifier(object):
             # return TrafficLight.RED
             with self.classification_graph.as_default() as graph, self.classification_sess.as_default() as sess:
                 predictions = sess.run(self.classification_predictions, feed_dict={self.boxes: boxes, 
-                                                                                   self.classification_image: image, 
+                                                                                   self.classification_image: im, 
                                                                                    self.box_indices: np.zeros(boxes.shape[0], dtype=np.int32)})
             # print("predictions = {}".format(predictions))
             u,c=np.unique(predictions, return_counts=True)

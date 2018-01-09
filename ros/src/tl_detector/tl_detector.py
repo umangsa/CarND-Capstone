@@ -23,18 +23,6 @@ class TLDetector(object):
         self.camera_image = None
         self.lights = []
 
-        sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
-        sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
-
-        '''
-        /vehicle/traffic_lights provides you with the location of the traffic light in 3D map space and
-        helps you acquire an accurate ground truth data source for the traffic light
-        classifier by sending the current color state of all traffic lights in the
-        simulator. When testing on the vehicle, the color state will not be available. You'll need to
-        rely on the position of the light and the camera image to predict it.
-        '''
-        sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.traffic_cb)
-        sub6 = rospy.Subscriber('/image_color', Image, self.image_cb, queue_size=1)
 
         config_string = rospy.get_param("/traffic_light_config")
         self.config = yaml.load(config_string)
@@ -50,6 +38,20 @@ class TLDetector(object):
         self.last_wp = -1
         self.state_count = 0
         self.log_publish = True
+        self.test_image = cv2.imread("/udacity/temp/245.jpg")
+        
+        sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
+        sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
+
+        '''
+        /vehicle/traffic_lights provides you with the location of the traffic light in 3D map space and
+        helps you acquire an accurate ground truth data source for the traffic light
+        classifier by sending the current color state of all traffic lights in the
+        simulator. When testing on the vehicle, the color state will not be available. You'll need to
+        rely on the position of the light and the camera image to predict it.
+        '''
+        sub3 = rospy.Subscriber('/vehicle/traffic_lights', TrafficLightArray, self.traffic_cb)
+        sub6 = rospy.Subscriber('/image_color', Image, self.image_cb, queue_size=1)
         
         rospy.spin()
 
@@ -199,7 +201,7 @@ class TLDetector(object):
             dist_to_light = abs(car_position - closest_light_stop_wp)
             #rospy.loginfo("Closest light position (in Wp index): %s", closest_light_stop_wp)
 
-        if light and dist_to_light < 200:       #we check the status of the traffic light if it's within 200 waypoints distance
+        if light and dist_to_light < 150:       #we check the status of the traffic light if it's within 200 waypoints distance
             state = self.get_light_state(light)
             #closest_stop_line_wp = self.find_stop_line(closest_light_wp)
             return closest_light_stop_wp, state, car_position
