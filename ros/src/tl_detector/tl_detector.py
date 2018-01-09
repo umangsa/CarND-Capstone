@@ -57,7 +57,7 @@ class TLDetector(object):
         rospy.spin()
 
     def get_tl_waypoints(self):
-        rospy.logerr("tl_detector get_tl_waypoints()")
+        rospy.loginfo("tl_detector get_tl_waypoints()")
         stop_line_positions = self.config['stop_line_positions']
         self.tl_waypoints = []
         for light_stop_position in stop_line_positions:
@@ -101,7 +101,7 @@ class TLDetector(object):
             else:
                 self.state_count = 0
                 self.state = state
-                rospy.logerr("tl_detector car position: {} state = {}".format(car_position, self.state))
+                rospy.loginfo("tl_detector car position: {} state = {}".format(car_position, self.state))
         elif self.last_state == TrafficLight.RED and self.state_count >= STATE_COUNT_THRESHOLD * 2:
             if self.last_state != self.state:
                 self.log_publish = True
@@ -110,7 +110,7 @@ class TLDetector(object):
             self.upcoming_red_light_pub.publish(Int32(light_wp))
             if self.log_publish:
                 self.log_publish = False
-                rospy.logerr("tl_detector publish car position: {} light_wp = {} state = {}".format(car_position, light_wp, self.state))
+                rospy.loginfo("tl_detector publish car position: {} light_wp = {} state = {}".format(car_position, light_wp, self.state))
         elif self.last_state != TrafficLight.RED and self.state_count >= STATE_COUNT_THRESHOLD:
             if self.last_state != self.state:
                 self.log_publish = True
@@ -120,7 +120,7 @@ class TLDetector(object):
             self.upcoming_red_light_pub.publish(Int32(light_wp))
             if self.log_publish:
                 self.log_publish = False
-                rospy.logerr("tl_detector publish car position: {} light_wp = {} state = {}".format(car_position, light_wp, self.state))
+                rospy.loginfo("tl_detector publish car position: {} light_wp = {} state = {}".format(car_position, light_wp, self.state))
         # else:
         #     print("tl_detector: light = {}".format(Int32(self.last_wp)))
         #     self.upcoming_red_light_pub.publish(Int32(self.last_wp))

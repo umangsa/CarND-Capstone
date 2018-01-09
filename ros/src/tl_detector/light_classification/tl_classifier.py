@@ -71,7 +71,7 @@ class TLClassifier(object):
             _ = sess.run(self.classification_predictions, feed_dict={self.boxes: [[0.0, 1.0, 0.0, 1.0]], 
                                                                            self.classification_image: [black], 
                                                                            self.box_indices: np.zeros(1, dtype=np.int32)})
-        rospy.logerr("classifier ready")
+        rospy.loginfo("classifier ready")
         #self.is_ready = True
 
     def get_classification(self, im):
