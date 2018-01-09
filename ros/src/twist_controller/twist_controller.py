@@ -11,14 +11,15 @@ ONE_MPH = 0.44704
 class Controller(object):
     def __init__(self, max_accel, max_steering, wheel_base, steer_ratio, min_speed, max_lat_accel, decel_limit, vehicle_mass, fuel_capacity, wheel_radius, brake_deadband, *args, **kwargs):
         # TODO: Implement
+        self.control_rate = 50. # dbw_node.py is currently set up to publish steering, throttle, and brake commands at 50hz
+        self.control_period = 1.0 / self.control_rate;
+
         self.pid_speed_controller = PID(2., 0., 0.)
-        self.pid_accel_controller = PID(0.8, 0.1, 0., -1., 1.)
-        self.lpf_accel = LowPassFilter(tau = 0.5, ts = 0.2)
+        self.pid_accel_controller = PID(3.5, 0.1, 0., -1., 1.)
+        self.lpf_accel = LowPassFilter(tau = 0.5, ts = self.control_period)
         self.yaw_controller = YawController(wheel_base, steer_ratio, min_speed, max_lat_accel, max_steering)
 
         self.last_visit = 0
-        self.control_rate = 50. # dbw_node.py is currently set up to publish steering, throttle, and brake commands at 50hz
-        self.control_period = 1.0 / self.control_rate;
         self.past_velocity_linear = None
         self.steer_kp = 0.8
         self.max_accel = max_accel
